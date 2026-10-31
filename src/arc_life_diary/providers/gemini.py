@@ -92,20 +92,26 @@ class GeminiEmbeddingModel:
 
 
 class GeminiLLMClient:
-    """Concrete LLM client using Gemini 2.5 Flash for synthesis."""
+    """Concrete LLM client using Gemini 3.5 Flash-Lite for synthesis."""
 
-    def __init__(self, api_key: Optional[str] = None, env_path: Union[str, Path] = ".env"):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        env_path: Union[str, Path] = ".env",
+        model_name: str = "gemini-3.5-flash-lite",
+    ):
         resolved_key = api_key or load_env_api_key(env_path)
+        self._model_name = model_name
         self._client = genai.Client(api_key=resolved_key)
 
     def generate_synthesis(self, prompt: str, system_instruction: str) -> str:
-        """Invokes gemini-2.5-flash with system instruction and context prompt."""
+        """Invokes gemini-3.5-flash-lite with system instruction and context prompt."""
         config = types.GenerateContentConfig(
             system_instruction=system_instruction,
             temperature=0.3,
         )
         response = self._client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=self._model_name,
             contents=prompt,
             config=config,
         )
