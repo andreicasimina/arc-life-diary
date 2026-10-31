@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arc-life-diary"
+version = "0.1.0"
+description = "A modular, cross-lingual personal journal retrieval and introspection CLI."
+authors = [{ name = "arcas" }]
+readme = "docs/arc-life-diary-prd.md"
+requires-python = ">=3.10"
+dependencies = [
+    "sqlite-vec>=0.1.9",
+    "google-genai>=2.34.0",
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[project.scripts]
+diary = "arc_life_diary.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
