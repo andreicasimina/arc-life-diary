@@ -19,6 +19,10 @@ class BaseEmbeddingModel(Protocol):
         """Embeds a single document for ingestion."""
         ...
 
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        """Embeds multiple documents in batches for efficient ingestion."""
+        ...
+
     def embed_query(self, text: str) -> List[float]:
         """Embeds a user query string for vector search."""
         ...

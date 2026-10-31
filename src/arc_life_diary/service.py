@@ -74,25 +74,27 @@ class DiaryService:
         stored_hashes = self.store.get_stored_hashes()
         scanned_dates = {e.date for e in scanned_entries}
 
-        added = 0
-        updated = 0
+        entries_to_add: List[JournalEntry] = []
+        entries_to_update: List[JournalEntry] = []
         unchanged = 0
 
         for entry in scanned_entries:
             stored_hash = stored_hashes.get(entry.date)
             if stored_hash is None:
-                # New entry: generate embedding and store
-                embedding = self.embedder.embed_document(entry.content)
-                self.store.upsert_entry(entry, embedding)
-                added += 1
+                entries_to_add.append(entry)
             elif stored_hash != entry.content_hash:
-                # Content changed: regenerate embedding and update
-                embedding = self.embedder.embed_document(entry.content)
-                self.store.upsert_entry(entry, embedding)
-                updated += 1
+                entries_to_update.append(entry)
             else:
-                # Unchanged: zero redundant API calls
                 unchanged += 1
+
+        entries_to_embed = entries_to_add + entries_to_update
+        if entries_to_embed:
+            embeddings = self.embedder.embed_documents([e.content for e in entries_to_embed])
+            for entry, embedding in zip(entries_to_embed, embeddings):
+                self.store.upsert_entry(entry, embedding)
+
+        added = len(entries_to_add)
+        updated = len(entries_to_update)
 
         # Delete entries that no longer exist in the directory
         deleted = 0

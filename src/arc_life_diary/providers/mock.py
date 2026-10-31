@@ -30,6 +30,9 @@ class MockEmbeddingModel:
     def embed_document(self, text: str) -> List[float]:
         return self._generate_vector(text)
 
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        return [self._generate_vector(text) for text in texts]
+
     def embed_query(self, text: str) -> List[float]:
         return self._generate_vector(text)
 

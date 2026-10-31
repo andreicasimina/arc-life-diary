@@ -58,18 +58,33 @@ class GeminiEmbeddingModel:
             contents=text,
             config=config,
         )
-        if getattr(response, "embedding", None) and hasattr(response.embedding, "values"):
-            return list(response.embedding.values)
-        if getattr(response, "embeddings", None) and len(response.embeddings) > 0:
-            first = response.embeddings[0]
-            if hasattr(first, "values"):
-                return list(first.values)
-            return list(first)
-        raise ValueError("Unexpected response format from embedding model.")
+        return list(response.embeddings[0].values)
 
     def embed_document(self, text: str) -> List[float]:
         """Embeds a single document for ingestion with RETRIEVAL_DOCUMENT task type."""
         return self._embed(text, task_type="RETRIEVAL_DOCUMENT")
+
+    def embed_documents(self, texts: List[str], batch_size: int = 50) -> List[List[float]]:
+        """Embeds multiple documents in batches for efficient ingestion."""
+        if not texts:
+            return []
+
+        results: List[List[float]] = []
+        for i in range(0, len(texts), batch_size):
+            chunk = texts[i : i + batch_size]
+            config = types.EmbedContentConfig(
+                task_type="RETRIEVAL_DOCUMENT",
+                output_dimensionality=self._dimensions,
+            )
+            response = self._client.models.embed_content(
+                model=self._model_name,
+                contents=chunk,
+                config=config,
+            )
+            for emb in response.embeddings:
+                results.append(list(emb.values))
+
+        return results
 
     def embed_query(self, text: str) -> List[float]:
         """Embeds a user query string with RETRIEVAL_QUERY task type."""
