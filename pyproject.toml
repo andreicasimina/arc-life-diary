@@ -7,7 +7,7 @@ name = "arc-life-diary"
 version = "0.1.0"
 description = "A modular, cross-lingual personal journal retrieval and introspection CLI."
 authors = [{ name = "arcas" }]
-readme = "docs/arc-life-diary-prd.md"
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "sqlite-vec>=0.1.9",
