@@ -36,11 +36,12 @@ def load_env_api_key(env_path: Union[str, Path] = ".env") -> str:
 
 
 class GeminiEmbeddingModel:
-    """Concrete embedding model using Gemini text-embedding-004 (768 dimensions)."""
+    """Concrete embedding model using Gemini gemini-embedding-001 (768 dimensions)."""
 
     def __init__(self, api_key: Optional[str] = None, env_path: Union[str, Path] = ".env"):
         resolved_key = api_key or load_env_api_key(env_path)
         self._dimensions = 768
+        self._model_name = "gemini-embedding-001"
         self._client = genai.Client(api_key=resolved_key)
 
     @property
@@ -48,13 +49,23 @@ class GeminiEmbeddingModel:
         return self._dimensions
 
     def _embed(self, text: str, task_type: str) -> List[float]:
-        config = types.EmbedContentConfig(task_type=task_type)
+        config = types.EmbedContentConfig(
+            task_type=task_type,
+            output_dimensionality=self._dimensions,
+        )
         response = self._client.models.embed_content(
-            model="text-embedding-004",
+            model=self._model_name,
             contents=text,
             config=config,
         )
-        return response.embedding.values
+        if getattr(response, "embedding", None) and hasattr(response.embedding, "values"):
+            return list(response.embedding.values)
+        if getattr(response, "embeddings", None) and len(response.embeddings) > 0:
+            first = response.embeddings[0]
+            if hasattr(first, "values"):
+                return list(first.values)
+            return list(first)
+        raise ValueError("Unexpected response format from embedding model.")
 
     def embed_document(self, text: str) -> List[float]:
         """Embeds a single document for ingestion with RETRIEVAL_DOCUMENT task type."""
