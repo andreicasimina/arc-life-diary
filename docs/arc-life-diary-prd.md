@@ -41,7 +41,7 @@ The goal of this system is to provide a single-command CLI tool that semanticall
    `diary "How did my reaction to family arguments evolve?"`
 4. The system outputs:
    * A synthesized narrative written in English, tracing chronological attitude shifts.
-   * A list of cited Markdown source files with distance scores and opening snippets.
+   * A list of cited entries under `## Relevant Entries` with date, optional title, and distance scores.
 5. User reads the analysis, verifies the claims against their original notes, and closes the terminal.
 
 ---
@@ -84,7 +84,7 @@ To avoid tightly coupling the application to the Gemini API, the system is separ
 1. **`interfaces.py`**: Declares abstract contracts for `BaseEmbeddingModel` and `BaseLLMClient`. Does not import any vendor SDK.
 2. **`store.py`**: Manages the local SQLite database and `sqlite-vec` virtual tables. Handles file hashing, caching, and raw KNN vector math. Completely agnostic of which embedding model produced the vectors.
 3. **`parser.py`**: Reads raw `.md` files, extracts frontmatter (date/title), and cleans text payloads.
-4. **`providers/gemini.py`**: Concrete implementation of `BaseEmbeddingModel` (using `text-embedding-004`) and `BaseLLMClient` (using `gemini-2.5-flash`).
+4. **`providers/gemini.py`**: Concrete implementation of `BaseEmbeddingModel` (using `gemini-embedding-001`) and `BaseLLMClient` (using `gemini-3.5-flash-lite`).
 5. **`service.py`**: Core orchestration. Coordinates embedding, querying SQLite, structuring prompts, and invoking the LLM. Depends solely on abstract interfaces via dependency injection.
 6. **`cli.py`**: Parses terminal commands (`sync`, query), instantiates the chosen provider implementations, and prints formatted output.
 
@@ -94,8 +94,9 @@ To avoid tightly coupling the application to the Gemini API, the system is separ
 
 ### 5.1 Embedding Interface (`interfaces.py`)
 ```python
-from typing import List, Protocol
+from typing import List, Protocol, runtime_checkable
 
+@runtime_checkable
 class BaseEmbeddingModel(Protocol):
     """Abstract interface for dense vector embedding generators."""
     
@@ -108,6 +109,10 @@ class BaseEmbeddingModel(Protocol):
         """Embeds a single document for ingestion."""
         ...
 
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        """Embeds multiple documents in batches for efficient ingestion."""
+        ...
+
     def embed_query(self, text: str) -> List[float]:
         """Embeds a user query string for vector search."""
         ...
@@ -115,8 +120,9 @@ class BaseEmbeddingModel(Protocol):
 
 ### 5.2 LLM Synthesis Interface (`interfaces.py`)
 ```python
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
+@runtime_checkable
 class BaseLLMClient(Protocol):
     """Abstract interface for text synthesis and introspection models."""
     
@@ -139,7 +145,7 @@ class BaseLLMClient(Protocol):
 * **Incremental Synchronization:**
   * System computes a SHA-256 hash of each file's contents.
   * Compare against stored hashes in SQLite.
-  * Only call `embed_document()` on new or modified files ($O(1)$ redundant API calls).
+  * Batches new or modified files and calls `embed_documents()` for efficient ingestion (0 redundant API calls for unchanged files).
 
 ### FR-3: Multilingual Semantic Representation & Storage
 * **Embeddings:** Support cross-lingual embeddings that align Japanese, English, and Chinese concepts into unified vector coordinates.
@@ -156,8 +162,8 @@ class BaseLLMClient(Protocol):
   * System prompt instructs the model to distinguish past memories from entry pen-dates.
   * Output strictly in English regardless of source language.
   * Structure output into two explicit sections:
-    1. **Analysis & Progression:** Thoughtful narrative detailing shifts in coping mechanisms and mindset.
-    2. **Relevant Sources (Fact-Check):** Metadata list containing filename, date, title, vector distance, and preview.
+    1. **Direct Narrative Synthesis:** Thoughtful analysis detailing shifts in coping mechanisms and mindset, generated directly without arbitrary top-level headers.
+    2. **Relevant Entries:** Programmatically appended section (`## Relevant Entries`) listing retrieved entries with dates, optional titles, and cosine distance metrics.
 
 ---
 
@@ -180,14 +186,14 @@ class BaseLLMClient(Protocol):
 
 ### Command Specifications
 ```bash
-# Ingests and updates index incrementally
-diary sync
+# Ingests and updates index incrementally (optional --dir)
+diary sync [--dir <path>]
 
 # Executes query, prints analysis and citations
 diary "<query-string>"
 
-# Optional flag to adjust retrieval count
-diary "<query-string>" --top-k 8
+# Query subcommand with optional retrieval limit and custom directory
+diary query "<query-string>" [--limit 5] [--dir <path>]
 ```
 
 ### Error Conditions
