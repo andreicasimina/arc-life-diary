@@ -3,6 +3,12 @@ diary.db
 diary.db-journal
 *.db
 *.db-journal
+
+# Personal journal entries
+entries/*
+!entries/.gitkeep
+
+# Python cache & build artifacts
 __pycache__/
 *.py[cod]
 *$py.class
