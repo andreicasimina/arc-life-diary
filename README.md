@@ -1,12 +1,12 @@
 # arc-life-diary
 
-A command-line introspection tool for personal journals. It semantically searches through your markdown journal entries across languages (English, Japanese, or mixed) and synthesizes developmental reflections tracing how your thoughts, perspectives, and coping mechanisms have evolved over time.
+A command-line introspection tool for personal journals. It semantically searches through markdown journal entries across multiple languages and synthesizes developmental reflections tracing how thoughts, perspectives, and coping mechanisms have evolved over time.
 
 ---
 
 ## What It Can Do
 
-- **Cross-Lingual Semantic Search**: Ask questions in English and retrieve relevant entries written in English, Japanese, or mixed notes.
+- **Cross-Lingual Semantic Search**: Query and retrieve relevant entries across multiple languages and mixed-language notes.
 - **Temporal & Developmental Synthesis**: Synthesizes a coherent chronological narrative tracing behavioral and mindset shifts across years of entries.
 - **Auditable Citations**: Lists the source journal entries for your query with dates, optional titles, and vector similarity metrics.
 - **Fast, Local Vector Storage**: Uses local SQLite vector storage (`sqlite-vec`) with incremental caching so unchanged entries are not re-embedded.
@@ -43,7 +43,7 @@ GEMINI_API_KEY=your_gemini_api_key_here
 
 ### 3. Add Entries
 
-Place your journal entries in the `entries/` directory named using the `YYYY-MM-DD.md` format (e.g., `entries/2026-10-31.md`). Frontmatter `title` and `date` are supported but optional.
+Place your journal entries in the `entries/` directory named using the `YYYY-MM-DD.md` format (e.g., `entries/2026-01-15.md`). Frontmatter `title` and `date` are supported but optional.
 
 ---
 
@@ -66,18 +66,18 @@ Ask a retrospective or thematic question:
 
 ```bash
 # Shorthand syntax
-diary "How did my reaction to high-stress situations evolve over time?"
+diary "How have my perspectives on work-life balance evolved?"
 
 # Explicit subcommand syntax
-diary query "How did my reaction to high-stress situations evolve over time?"
+diary query "How have my perspectives on work-life balance evolved?"
 ```
 
 Adjust the number of retrieved entries (default is 5):
 ```bash
-diary "What were my key career realizations?" --limit 8
+diary "What were my key project takeaways?" --limit 8
 ```
 
 Query with a custom entries directory:
 ```bash
-diary "How has my daily routine shifted?" --dir /path/to/entries
+diary "How has my daily workflow shifted?" --dir /path/to/entries
 ```

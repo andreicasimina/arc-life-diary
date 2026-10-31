@@ -1,11 +1,11 @@
 # Product Requirements Document (PRD): arc-life-diary
 
 ## 1. Overview & Problem Statement
-The user maintains a 6-year personal archive composed of discrete Markdown entries (`YYYY-MM-DD.md`) averaging ~500 words each. Entries are bilingual (written in English, Japanese, and occasional code-switching) and non-linear (recent entries frequently embed unstructured recollections of events from years prior without explicit dates).
+Users maintain personal archives composed of discrete Markdown entries (`YYYY-MM-DD.md`). Entries may be multilingual or code-switched, and often non-linear (recent entries frequently embed unstructured recollections of events from years prior without explicit dates).
 
-Standard chronological skimming and keyword matching (`grep`, BM25) fail to answer thematic, retrospective questions such as *"How did my past self react to high-stress situations over time?"* 
+Standard chronological skimming and keyword matching (`grep`, BM25) fail to answer thematic, retrospective questions such as *"How have my perspectives on key challenges evolved over time?"* 
 
-The goal of this system is to provide a single-command CLI tool that semantically retrieves relevant life events regardless of the language written, reconstructs an objective developmental progression over time, and presents direct file citations for personal fact-checking.
+The goal of this system is to provide a single-command CLI tool that semantically retrieves relevant life events regardless of the language written, reconstructs an objective developmental progression over time, and presents direct file citations for fact-checking and auditability.
 
 **Key Design Mandate:** The codebase must adhere to strict modularity and separation of concerns. All external AI dependencies (embeddings and LLM generation) must be decoupled behind abstract interface boundaries so that alternative providers (e.g., local Ollama, OpenAI, Anthropic, local ONNX) can be swapped in without modifying database logic, ingestion code, or CLI flows.
 
@@ -15,7 +15,7 @@ The goal of this system is to provide a single-command CLI tool that semanticall
 
 ### Goals
 * **Modular Provider Interfaces:** Use Python `Protocol` or `ABC` interfaces for embedding models and text generation to ensure zero vendor lock-in.
-* **Cross-Lingual Retrieval:** Querying in English must reliably retrieve entries written in Japanese, English, or mixed languages.
+* **Cross-Lingual Retrieval:** Queries must reliably retrieve relevant entries across multiple languages or mixed-language text.
 * **Non-Linear Synthesis:** Differentiate between *entry creation date* (file timestamp) and *narrative memory date* (when the event actually took place) through LLM context synthesis.
 * **Developmental Arc Analysis:** Produce structured, analytical reflections showing internal shift and coping mechanisms across time, rather than a flat bulleted summary.
 * **Verifiable Grounding:** Every insight must link directly to the primary Markdown files with distance metrics and context snippets for auditability.
@@ -32,15 +32,15 @@ The goal of this system is to provide a single-command CLI tool that semanticall
 ## 3. User Personas & Core Use Case
 
 ### Primary Persona
-* **The Long-Term Self-Chronicler:** An introspective engineer who records daily vignettes and past recollections in raw text, wanting to identify recurring emotional blind spots, evolving career philosophies, and behavioral patterns across multiple years.
+* **The Long-Term Journal Keeper:** A user who records daily notes, reflections, and past recollections in raw text, seeking to identify recurring patterns, evolving perspectives, and behavioral trends across multiple years.
 
 ### User Journey
-1. User writes an entry into their local vault (`entries/2026-10-31.md`).
+1. User writes an entry into their local vault (`entries/YYYY-MM-DD.md`).
 2. User runs `sync` to update the local vector cache for any new or modified entries.
 3. User runs a thematic query via terminal:  
-   `diary "How did my reaction to family arguments evolve?"`
+   `diary "How have my perspectives on work-life balance evolved?"`
 4. The system outputs:
-   * A synthesized narrative written in English, tracing chronological attitude shifts.
+   * A synthesized narrative tracing chronological attitude and perspective shifts.
    * A list of cited entries under `## Relevant Entries` with date, optional title, and distance scores.
 5. User reads the analysis, verifies the claims against their original notes, and closes the terminal.
 
@@ -148,7 +148,7 @@ class BaseLLMClient(Protocol):
   * Batches new or modified files and calls `embed_documents()` for efficient ingestion (0 redundant API calls for unchanged files).
 
 ### FR-3: Multilingual Semantic Representation & Storage
-* **Embeddings:** Support cross-lingual embeddings that align Japanese, English, and Chinese concepts into unified vector coordinates.
+* **Embeddings:** Support cross-lingual embeddings that align concepts across multiple languages into unified vector coordinates.
 * **Storage Primitives:** Store vectors locally in SQLite using `sqlite-vec` (`vec0` virtual table with cosine distance). Dimensionality dynamically adapts to `BaseEmbeddingModel.dimensions`.
 
 ### FR-4: Retrieval Pipeline
@@ -160,7 +160,7 @@ class BaseLLMClient(Protocol):
 * **Synthesis Engine:** Any engine implementing `BaseLLMClient`.
 * **Generation Constraints:**
   * System prompt instructs the model to distinguish past memories from entry pen-dates.
-  * Output strictly in English regardless of source language.
+  * Synthesize output coherently regardless of the source entry languages.
   * Structure output into two explicit sections:
     1. **Direct Narrative Synthesis:** Thoughtful analysis detailing shifts in coping mechanisms and mindset, generated directly without arbitrary top-level headers.
     2. **Relevant Entries:** Programmatically appended section (`## Relevant Entries`) listing retrieved entries with dates, optional titles, and cosine distance metrics.
@@ -208,6 +208,6 @@ diary query "<query-string>" [--limit 5] [--dir <path>]
 | Metric | Target | Verification Method |
 | :--- | :--- | :--- |
 | **Provider Decoupling** | Zero core edits | Switching to a new provider requires adding 1 class and modifying 0 lines of database/ingestion code. |
-| **Cross-Lingual Recall** | 100% | Querying in English retrieves relevant entries written solely in Japanese in the top 3 results. |
+| **Cross-Lingual Recall** | 100% | Queries in one language retrieve relevant entries written in different or mixed languages in the top 3 results. |
 | **Temporal Disentanglement** | > 85% accuracy | Model correctly identifies an event as occurring in the past when recounted inside a newer file. |
 | **API Call Efficiency** | Zero redundant calls | Consecutive `sync` runs without file modifications make 0 external embedding calls. |
