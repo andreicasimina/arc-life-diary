@@ -4,6 +4,11 @@ diary.db-journal
 *.db
 *.db-journal
 
+# Google Drive OAuth & backup artifacts
+credentials.json
+token.json
+*.7z
+
 # Personal journal entries
 entries/*
 !entries/.gitkeep

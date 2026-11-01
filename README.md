@@ -100,3 +100,33 @@ Query with a custom entries directory:
 ```bash
 diary "How has my daily workflow shifted?" --dir /path/to/entries
 ```
+
+### Encrypted Cloud Backup & Restore
+
+#### Backup
+Safely package and encrypt entries using AES-256 (with encrypted headers via `py7zr`) and upload to Google Drive:
+
+```bash
+diary backup
+```
+You will be interactively prompted to enter and confirm an encryption password. Passwords are never stored on disk.
+
+To back up a custom entries directory:
+```bash
+diary backup --dir /path/to/entries
+```
+
+#### Restore
+Restore entries from an encrypted Google Drive archive:
+
+```bash
+# Interactively choose from available backups
+diary restore
+
+# Automatically restore the latest backup
+diary restore --latest
+
+# Restore a specific backup file by its Google Drive file ID
+diary restore --file-id <drive-file-id>
+```
+During restore, the CLI prompts for your decryption password and warns before overwriting any existing local files. After restoring, run `diary sync` to update the local vector index.

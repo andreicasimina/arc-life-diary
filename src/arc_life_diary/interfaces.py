@@ -1,9 +1,39 @@
-"""Abstract provider interfaces for embeddings and LLM synthesis.
+"""Abstract provider interfaces for embeddings, LLM synthesis, and backup storage.
 
 Zero external vendor SDKs should be imported in this module.
 """
 
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
 from typing import List, Protocol, runtime_checkable
+
+
+@dataclass
+class RemoteBackupMetadata:
+    """Metadata representing an archive stored in a remote destination."""
+
+    file_id: str
+    name: str
+    created_at: datetime
+    size_bytes: int
+
+
+@runtime_checkable
+class BaseBackupStorage(Protocol):
+    """Abstract interface for remote/offsite backup storage targets."""
+
+    def upload(self, local_path: Path, remote_filename: str) -> RemoteBackupMetadata:
+        """Uploads an encrypted archive to the remote storage destination."""
+        ...
+
+    def list_backups(self) -> List[RemoteBackupMetadata]:
+        """Lists available backup archives on remote storage, sorted newest first."""
+        ...
+
+    def download(self, file_id: str, destination_path: Path) -> Path:
+        """Downloads a remote backup archive by ID to a local destination path."""
+        ...
 
 
 @runtime_checkable

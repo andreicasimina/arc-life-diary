@@ -1,1 +1,1 @@
-"""Providers package for embedding and LLM implementations."""
+"""Providers package for embedding, LLM, and storage implementations."""
