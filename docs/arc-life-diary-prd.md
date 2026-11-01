@@ -68,38 +68,42 @@ The goal of this system is to provide a single-command CLI tool that semanticall
 
 To avoid tightly coupling the application to specific AI vendors or cloud storage backends, the system is separated into distinct layers with clear dependency boundaries:
 
-```text
-┌────────────────────────────────────────────────────────────────────────┐
-│                          CLI / Runner Layer                            │
-│                            (cli.py / main)                             │
-└───────────────┬────────────────────────────┬───────────────────────────┘
-                │                            │
-        ┌───────┴───────┐                    ▼
-        ▼               ▼         ┌──────────────────────────────────────┐
-┌───────────────┐ ┌─────────────┐ │ Backup & Restore Service (backup.py) │
-│ Storage &     │ │Introspection│ │ - AES-256 / Header Enc. (py7zr)      │
-│ Ingestion     │ │Service      │ │ - Password Handling (getpass)        │
-│ (store.py,    │ │(service.py) │ └──────────────────┬───────────────────┘
-│  parser.py)   │ └──────┬──────┘                    │
-└───────┬───────┘        │                           │
-        │       ┌────────┘                           │
-        ▼       ▼                                    │
-┌──────────────────────────────────────────────────┐ │
-│           Abstract Provider Interfaces           │ │
-│           (interfaces.py)                        │ │
-│           - BaseEmbeddingModel                   │ │
-│           - BaseLLMClient                        │ │
-│           - BaseBackupStorage ◄──────────────────┘ │
-└───────────────┬──────────────────────────────────┘
-                │
-    ┌───────────┼────────────────────────┐
-    ▼           ▼                        ▼
-┌─────────┐ ┌──────────────┐   ┌────────────────────────────────┐
-│ Gemini  │ │ Alternative/ │   │ Google Drive Provider          │
-│ Provider│ │ Mock (Ollama)│   │ (providers/gdrive.py)          │
-└─────────┘ └──────────────┘   │ - OAuth 2.0 Desktop Flow       │
-                               │ [Future: S3, Local, WebDAV...] │
-                               └────────────────────────────────┘
+```mermaid
+flowchart TD
+    CLI["CLI / Runner Layer<br/>(cli.py / main)"]
+
+    subgraph Services["Core Application Layer"]
+        Storage["Storage & Ingestion<br/>(store.py, parser.py)"]
+        Introspection["Introspection Service<br/>(service.py)"]
+        Backup["Backup & Restore Service<br/>(backup.py)<br/>• AES-256 / Header Enc. (py7zr)<br/>• Password Handling (getpass)"]
+    end
+
+    subgraph Interfaces["Abstract Provider Interfaces (interfaces.py)"]
+        BaseEmbed["BaseEmbeddingModel"]
+        BaseLLM["BaseLLMClient"]
+        BaseBackup["BaseBackupStorage"]
+    end
+
+    subgraph Providers["Concrete Implementations"]
+        Gemini["Gemini Provider<br/>(providers/gemini.py)"]
+        Alt["Alternative / Mock Provider<br/>(e.g., Ollama)"]
+        GDrive["Google Drive Provider<br/>(providers/gdrive.py)<br/>• OAuth 2.0 Desktop Flow<br/>• Future: S3, Local, WebDAV..."]
+    end
+
+    CLI --> Storage
+    CLI --> Introspection
+    CLI --> Backup
+
+    Storage --> BaseEmbed
+    Introspection --> BaseEmbed
+    Introspection --> BaseLLM
+    Backup --> BaseBackup
+
+    BaseEmbed --> Gemini
+    BaseLLM --> Gemini
+    BaseEmbed -.-> Alt
+    BaseLLM -.-> Alt
+    BaseBackup --> GDrive
 ```
 
 ### Module Responsibilities
