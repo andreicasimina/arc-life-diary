@@ -86,7 +86,7 @@ To avoid tightly coupling the application to the Gemini API, the system is separ
 3. **`parser.py`**: Reads raw `.md` files, extracts frontmatter (date/title), and cleans text payloads.
 4. **`providers/gemini.py`**: Concrete implementation of `BaseEmbeddingModel` (using `gemini-embedding-001`) and `BaseLLMClient` (using `gemini-3.5-flash-lite`).
 5. **`service.py`**: Core orchestration. Coordinates embedding, querying SQLite, structuring prompts, and invoking the LLM. Depends solely on abstract interfaces via dependency injection.
-6. **`cli.py`**: Parses terminal commands (`sync`, query), instantiates the chosen provider implementations, and prints formatted output.
+6. **`cli.py`**: Parses terminal commands (`sync`, `query`, `search`), instantiates the chosen provider implementations, and prints formatted output.
 
 ---
 
@@ -151,10 +151,11 @@ class BaseLLMClient(Protocol):
 * **Embeddings:** Support cross-lingual embeddings that align concepts across multiple languages into unified vector coordinates.
 * **Storage Primitives:** Store vectors locally in SQLite using `sqlite-vec` (`vec0` virtual table with cosine distance). Dimensionality dynamically adapts to `BaseEmbeddingModel.dimensions`.
 
-### FR-4: Retrieval Pipeline
+### FR-4: Retrieval Pipeline & Semantic Search
 * **Query Embedding:** User query is converted to a vector using `BaseEmbeddingModel.embed_query()`.
 * **K-Nearest Neighbors:** Execute cosine distance search in SQLite with default limit $k = 5$.
 * **Context Payload:** Fetch matching file dates, titles, full bodies, and distance metrics.
+* **CLI Semantic Search:** Expose raw semantic search directly via the CLI (`diary search`) to inspect retrieved entries and similarity scores without invoking LLM synthesis.
 
 ### FR-5: Synthesis & Output Generation
 * **Synthesis Engine:** Any engine implementing `BaseLLMClient`.
@@ -194,6 +195,9 @@ diary "<query-string>"
 
 # Query subcommand with optional retrieval limit and custom directory
 diary query "<query-string>" [--limit 5] [--dir <path>]
+
+# Semantic search subcommand returning matching entries without LLM synthesis
+diary search "<query-string>" [--limit 5] [--dir <path>]
 ```
 
 ### Error Conditions
