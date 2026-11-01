@@ -223,8 +223,9 @@ class BaseBackupStorage(Protocol):
 * **Generation Constraints:**
   * System prompt instructs the model to distinguish past memories from entry pen-dates.
   * Synthesize output coherently regardless of the source entry languages.
+  * Keep the narrative synthesis strictly to one medium-length paragraph.
   * Structure output into two explicit sections:
-    1. **Direct Narrative Synthesis:** Thoughtful analysis detailing shifts in coping mechanisms and mindset, generated directly without arbitrary top-level headers.
+    1. **Direct Narrative Synthesis:** Thoughtful analysis detailing shifts in coping mechanisms and mindset in a single medium-length paragraph, generated directly without arbitrary top-level headers.
     2. **Relevant Entries:** Programmatically appended section (`## Relevant Entries`) listing retrieved entries with dates, optional titles, and cosine distance metrics.
 
 ### FR-6: Client-Side Encrypted Archival `[P0 - Must Have]`

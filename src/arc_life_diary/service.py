@@ -34,8 +34,9 @@ Your task is to analyze the provided journal entries to answer the user's query 
 Guidelines:
 1. Differentiate between entry creation date (when the note was penned) and narrative memory date (when the event actually occurred in the past).
 2. Trace an objective, chronological developmental progression, highlighting shifts in attitude, coping mechanisms, and emotional regulation across time.
-3. Write your entire response strictly in English, even if the source entries are in Japanese, English, or code-switched.
-4. Do not include any header. Start directly with your synthesis.
+3. Keep your synthesis to exactly one medium-length paragraph.
+4. Write your entire response strictly in English, even if the source entries are in Japanese, English, or code-switched.
+5. Do not include any headers or bullet lists. Start directly with your synthesis paragraph.
 """
 
 
