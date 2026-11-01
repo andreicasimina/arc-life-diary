@@ -111,6 +111,19 @@ class DiaryService:
             unchanged=unchanged,
         )
 
+    def search(self, query_text: str, limit: int = 5) -> str:
+        """Performs semantic search and returns formatted relevant entries without LLM synthesis."""
+        if not query_text.strip():
+            raise ValueError("Query string cannot be empty.")
+
+        query_vector = self.embedder.embed_query(query_text)
+        retrieved_entries = self.store.search_semantic(query_vector, limit=limit)
+
+        if not retrieved_entries:
+            return "No matching journal entries found in the archive."
+
+        return format_relevant_entries(retrieved_entries)
+
     def query(self, query_text: str, limit: int = 5) -> str:
         """Searches entries and returns synthesized reflection with relevant entries."""
         if not query_text.strip():

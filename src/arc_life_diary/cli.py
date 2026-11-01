@@ -3,6 +3,7 @@
 Supports:
     diary sync [--dir <path>]
     diary "<query>" [--limit <int>] [--dir <path>]
+    diary search "<query>" [--limit <int>] [--dir <path>]
 """
 
 import argparse
@@ -61,6 +62,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to entries directory (overrides DIARY_ENTRIES_DIR in .env)",
     )
 
+    # Subcommand: search
+    search_parser = subparsers.add_parser("search", help="Execute semantic search on journal entries without synthesis")
+    search_parser.add_argument("query_text", type=str, help="Search query string")
+    search_parser.add_argument(
+        "--limit",
+        type=int,
+        default=5,
+        help="Number of relevant entries to retrieve (default: 5)",
+    )
+    search_parser.add_argument(
+        "--dir",
+        type=str,
+        default=None,
+        help="Path to entries directory (overrides DIARY_ENTRIES_DIR in .env)",
+    )
+
     return parser
 
 
@@ -69,7 +86,7 @@ def parse_cli_args(args=None):
     raw_args = list(sys.argv[1:] if args is None else args)
 
     # Shorthand support: if first argument is not a known command or flag, treat as query
-    if raw_args and not raw_args[0].startswith("-") and raw_args[0] not in ("sync", "query", "-h", "--help"):
+    if raw_args and not raw_args[0].startswith("-") and raw_args[0] not in ("sync", "query", "search", "-h", "--help"):
         # Re-format as query command
         raw_args = ["query"] + raw_args
 
@@ -113,6 +130,16 @@ def main(argv=None) -> int:
                 service.sync(entries_dir)
 
             output = service.query(args.query_text, limit=args.limit)
+            print(output)
+            return 0
+
+        elif args.command == "search":
+            # Automatically sync if database has not been initialized with any entries
+            if store.count_entries() == 0 and entries_dir.exists():
+                print("First run detected. Synchronizing entries...")
+                service.sync(entries_dir)
+
+            output = service.search(args.query_text, limit=args.limit)
             print(output)
             return 0
 

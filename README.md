@@ -63,6 +63,23 @@ To specify a custom entries directory:
 diary sync --dir /path/to/entries
 ```
 
+### Semantic Search
+Retrieve matching entries with similarity distance scores without LLM synthesis:
+
+```bash
+diary search "work-life balance"
+```
+
+Adjust the number of retrieved entries:
+```bash
+diary search "project takeaways" --limit 8
+```
+
+Search with a custom entries directory:
+```bash
+diary search "daily workflow" --dir /path/to/entries
+```
+
 ### Query Your Archive
 Ask a retrospective or thematic question:
 

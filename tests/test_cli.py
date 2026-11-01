@@ -24,6 +24,13 @@ def test_cli_argument_parsing():
     assert args_short.query_text == "stress response"
     assert args_short.limit == 5
 
+    # Search command explicit
+    args_search = parse_cli_args(["search", "stress response", "--limit", "4", "--dir", "./entries"])
+    assert args_search.command == "search"
+    assert args_search.query_text == "stress response"
+    assert args_search.limit == 4
+    assert args_search.dir == "./entries"
+
 
 def test_cli_missing_env_error(monkeypatch, tmp_path: Path):
     # Change working directory to empty tmp_path without .env

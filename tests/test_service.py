@@ -107,6 +107,34 @@ def test_query_synthesis_formatting(tmp_path: Path):
     store.close()
 
 
+def test_search_formatting(tmp_path: Path):
+    entries_dir = tmp_path / "entries"
+    entries_dir.mkdir()
+    db_path = tmp_path / "test.db"
+
+    (entries_dir / "2021-04-15.md").write_text(
+        "---\ntitle: Job Stress\n---\nFelt completely overwhelmed by unexpected production outages.",
+        encoding="utf-8",
+    )
+    (entries_dir / "2024-02-10.md").write_text(
+        "---\ntitle: Retrospective\n---\nReflecting back on 2021 outages; I handle stress much better now.",
+        encoding="utf-8",
+    )
+
+    embedder = MockEmbeddingModel(dimensions=4)
+    store = DiaryStore(db_path=db_path, dimensions=4)
+    service = DiaryService(store=store, embedder=embedder, llm=None)
+
+    service.sync(entries_dir)
+    output = service.search("stress outages", limit=2)
+
+    assert output.startswith("## Relevant Entries")
+    assert "- Date: 2021-04-15 | Title: Job Stress | Distance:" in output
+    assert "- Date: 2024-02-10 | Title: Retrospective | Distance:" in output
+
+    store.close()
+
+
 def test_provider_decoupling():
     """Verify that core modules have zero vendor imports (e.g. google.genai)."""
     import inspect
