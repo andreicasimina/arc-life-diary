@@ -10,8 +10,13 @@ A command-line introspection tool for personal journals. It semantically searche
 - **Temporal & Developmental Synthesis**: Synthesizes a coherent chronological narrative tracing behavioral and mindset shifts across years of entries.
 - **Auditable Citations**: Lists the source journal entries for your query with dates, optional titles, and vector similarity metrics.
 - **Fast, Local Vector Storage**: Uses local SQLite vector storage (`sqlite-vec`) with incremental caching so unchanged entries are not re-embedded.
+- **Encrypted Cloud Backup & Disaster Recovery**: Client-side AES-256 encryption (with encrypted archive headers via `py7zr`) synchronized with Google Drive for zero-loss recovery.
 
+### Introspection & Synthesis Lifecycle
 ![Core Lifecycle Demo](docs/assets/core-lifecycle.gif)
+
+### Encrypted Backup & Restore
+![Backup and Restore Demo](docs/assets/backup-restore.gif)
 
 ---
 
@@ -102,10 +107,6 @@ diary "How has my daily workflow shifted?" --dir /path/to/entries
 ```
 
 ### Encrypted Cloud Backup & Restore
-
-Safely package and encrypt entries using AES-256 (with encrypted headers via `py7zr`) and synchronize with Google Drive for tamper-proof disaster recovery:
-
-![Backup and Restore Demo](docs/assets/backup-restore.gif)
 
 #### Backup
 Safely package and encrypt entries using AES-256 (with encrypted headers via `py7zr`) and upload to Google Drive:
