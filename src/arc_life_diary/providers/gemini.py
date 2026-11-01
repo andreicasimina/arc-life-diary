@@ -35,14 +35,38 @@ def load_env_api_key(env_path: Union[str, Path] = ".env") -> str:
     return str(api_key).strip()
 
 
+def default_http_options() -> types.HttpOptions:
+    """Returns HttpOptions configured with automatic retries for rate limits and server errors."""
+    return types.HttpOptions(
+        retry_options=types.HttpRetryOptions(
+            attempts=5,
+            http_status_codes=[408, 429, 500, 502, 503, 504],
+            initial_delay=10.0,
+            max_delay=60.0,
+            exp_base=2.0,
+            jitter=1.0,
+        )
+    )
+
+
 class GeminiEmbeddingModel:
     """Concrete embedding model using Gemini gemini-embedding-001 (768 dimensions)."""
 
-    def __init__(self, api_key: Optional[str] = None, env_path: Union[str, Path] = ".env"):
-        resolved_key = api_key or load_env_api_key(env_path)
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        env_path: Union[str, Path] = ".env",
+        http_options: Optional[types.HttpOptions] = None,
+        client: Optional[genai.Client] = None,
+    ):
         self._dimensions = 768
         self._model_name = "gemini-embedding-001"
-        self._client = genai.Client(api_key=resolved_key)
+        if client is not None:
+            self._client = client
+        else:
+            resolved_key = api_key or load_env_api_key(env_path)
+            opts = http_options if http_options is not None else default_http_options()
+            self._client = genai.Client(api_key=resolved_key, http_options=opts)
 
     @property
     def dimensions(self) -> int:
@@ -99,10 +123,16 @@ class GeminiLLMClient:
         api_key: Optional[str] = None,
         env_path: Union[str, Path] = ".env",
         model_name: str = "gemini-3.5-flash-lite",
+        http_options: Optional[types.HttpOptions] = None,
+        client: Optional[genai.Client] = None,
     ):
-        resolved_key = api_key or load_env_api_key(env_path)
         self._model_name = model_name
-        self._client = genai.Client(api_key=resolved_key)
+        if client is not None:
+            self._client = client
+        else:
+            resolved_key = api_key or load_env_api_key(env_path)
+            opts = http_options if http_options is not None else default_http_options()
+            self._client = genai.Client(api_key=resolved_key, http_options=opts)
 
     def generate_synthesis(self, prompt: str, system_instruction: str) -> str:
         """Invokes gemini-3.5-flash-lite with system instruction and context prompt."""

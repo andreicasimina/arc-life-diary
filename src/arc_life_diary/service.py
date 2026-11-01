@@ -62,7 +62,7 @@ class DiaryService:
         self.embedder = embedder
         self.llm = llm
 
-    def sync(self, entries_dir: Union[str, Path]) -> SyncResult:
+    def sync(self, entries_dir: Union[str, Path], batch_size: int = 50) -> SyncResult:
         """Incrementally synchronizes entry files with the vector database."""
         path = Path(entries_dir)
         if not path.exists():
@@ -90,9 +90,11 @@ class DiaryService:
 
         entries_to_embed = entries_to_add + entries_to_update
         if entries_to_embed:
-            embeddings = self.embedder.embed_documents([e.content for e in entries_to_embed])
-            for entry, embedding in zip(entries_to_embed, embeddings):
-                self.store.upsert_entry(entry, embedding)
+            for i in range(0, len(entries_to_embed), batch_size):
+                chunk = entries_to_embed[i : i + batch_size]
+                embeddings = self.embedder.embed_documents([e.content for e in chunk])
+                for entry, embedding in zip(chunk, embeddings):
+                    self.store.upsert_entry(entry, embedding)
 
         added = len(entries_to_add)
         updated = len(entries_to_update)

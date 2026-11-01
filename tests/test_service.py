@@ -135,6 +135,48 @@ def test_search_formatting(tmp_path: Path):
     store.close()
 
 
+def test_sync_incremental_batch_persistence(tmp_path: Path):
+    entries_dir = tmp_path / "entries"
+    entries_dir.mkdir()
+    db_path = tmp_path / "test.db"
+
+    (entries_dir / "2024-01-01.md").write_text("Entry 1", encoding="utf-8")
+    (entries_dir / "2024-01-02.md").write_text("Entry 2", encoding="utf-8")
+    (entries_dir / "2024-01-03.md").write_text("Entry 3", encoding="utf-8")
+
+    class FlakyEmbedder:
+        dimensions = 4
+        call_count = 0
+
+        def embed_documents(self, texts):
+            self.call_count += 1
+            if self.call_count == 2:
+                raise RuntimeError("Batch 2 network/quota failure")
+            return [[0.1, 0.2, 0.3, 0.4] for _ in texts]
+
+        def embed_query(self, text):
+            return [0.1, 0.2, 0.3, 0.4]
+
+        def embed_document(self, text):
+            return [0.1, 0.2, 0.3, 0.4]
+
+    store = DiaryStore(db_path=db_path, dimensions=4)
+    service = DiaryService(store=store, embedder=FlakyEmbedder())
+
+    # Sync with batch_size=2: Batch 1 (2 items) succeeds, Batch 2 (1 item) fails
+    with pytest.raises(RuntimeError, match="Batch 2 network/quota failure"):
+        service.sync(entries_dir, batch_size=2)
+
+    # Verify that the 2 entries from Batch 1 are already saved in the database!
+    stored_hashes = store.get_stored_hashes()
+    assert len(stored_hashes) == 2
+    assert "2024-01-01" in stored_hashes
+    assert "2024-01-02" in stored_hashes
+    assert "2024-01-03" not in stored_hashes
+
+    store.close()
+
+
 def test_provider_decoupling():
     """Verify that core modules have zero vendor imports (e.g. google.genai)."""
     import inspect
