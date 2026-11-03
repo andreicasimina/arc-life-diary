@@ -13,7 +13,7 @@ import getpass
 import os
 from pathlib import Path
 import sys
-from typing import Optional
+from typing import Optional, Union
 
 import dotenv
 
@@ -35,9 +35,9 @@ from arc_life_diary.service import DiaryService, EmptyArchiveError
 from arc_life_diary.store import DiaryStore, DimensionMismatchError
 
 
-def load_config() -> dict:
+def load_config(env_path: Union[str, Path] = ".env") -> dict:
     """Loads configuration from environment variables (populated from .env)."""
-    dotenv.load_dotenv(override=False)
+    dotenv.load_dotenv(dotenv_path=env_path, override=False)
     return {
         "entries_dir": os.environ.get("DIARY_ENTRIES_DIR", "./entries"),
         "db_path": os.environ.get("DIARY_DB_PATH", "./diary.db"),

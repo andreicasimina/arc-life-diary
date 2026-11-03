@@ -1,4 +1,4 @@
-"""Tests for CLI backup and restore subcommands."""
+"""Integration and execution wiring tests for CLI commands (sync, query, backup, restore)."""
 
 from datetime import datetime
 from pathlib import Path
@@ -9,6 +9,45 @@ from arc_life_diary.backup import DecryptionError
 from arc_life_diary.cli import main
 from arc_life_diary.interfaces import RemoteBackupMetadata
 
+
+# --- Sync & Query Command Wiring ---
+
+def test_cli_shared_client_injected(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("GEMINI_API_KEY", "mock-key")
+    with patch("arc_life_diary.cli.create_gemini_client") as mock_create_client:
+        mock_client = MagicMock()
+        mock_create_client.return_value = mock_client
+        with patch("arc_life_diary.cli.GeminiEmbeddingModel") as mock_embedder_cls:
+            with patch("arc_life_diary.cli.GeminiLLMClient") as mock_llm_cls:
+                with patch("arc_life_diary.cli.DiaryStore"):
+                    with patch("arc_life_diary.cli.DiaryService") as mock_service_cls:
+                        mock_service = MagicMock()
+                        mock_stats = MagicMock()
+                        mock_stats.scanned = 0
+                        mock_stats.added = 0
+                        mock_stats.updated = 0
+                        mock_stats.deleted = 0
+                        mock_stats.unchanged = 0
+                        mock_service.sync.return_value = mock_stats
+                        mock_service_cls.return_value = mock_service
+
+                        exit_code = main(["sync", "--dir", str(tmp_path)])
+                        assert exit_code == 0
+
+                        # Ensure shared client was created once and passed to both models
+                        mock_create_client.assert_called_once_with(env_path=".env")
+                        mock_embedder_cls.assert_called_once_with(client=mock_client)
+                        mock_llm_cls.assert_called_once_with(client=mock_client)
+
+
+def test_cli_missing_env_error(monkeypatch, tmp_path: Path):
+    # Change working directory to empty tmp_path without .env
+    monkeypatch.chdir(tmp_path)
+    exit_code = main(["sync"])
+    assert exit_code == 1
+
+
+# --- Backup Subcommand Wiring ---
 
 def test_cli_backup_empty_password(capsys):
     with patch("getpass.getpass", return_value=""):
@@ -53,6 +92,8 @@ def test_cli_backup_success(tmp_path, capsys):
                 assert "arc-life-diary_backup_2026-11-01_120000.7z" in captured.out
                 assert "gdrive_file_999" in captured.out
 
+
+# --- Restore Subcommand Wiring ---
 
 def test_cli_restore_no_backups(capsys):
     with patch("arc_life_diary.cli.GoogleDriveStorage"):

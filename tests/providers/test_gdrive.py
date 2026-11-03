@@ -58,8 +58,7 @@ def test_upload_with_folder_id(tmp_path):
     assert create_call["body"]["name"] == archive_file.name
 
 
-def test_upload_without_folder_id_defaults_to_root(tmp_path, monkeypatch):
-    monkeypatch.delenv("GDRIVE_FOLDER_ID", raising=False)
+def test_upload_without_folder_id_defaults_to_root(tmp_path):
     mock_service = MagicMock()
     mock_files = MagicMock()
     mock_service.files.return_value = mock_files
