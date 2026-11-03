@@ -8,14 +8,17 @@ from pathlib import Path
 from typing import List, Optional, Union
 import dotenv
 from google import genai
-from google.genai import types
+from google.genai import errors, types
 
-from arc_life_diary.exceptions import DiaryError
+from arc_life_diary.exceptions import AIProviderError, DiaryError, ProviderAuthError
 
-
-class ProviderAuthError(DiaryError):
-    """Raised when provider credentials cannot be loaded from environment or .env."""
-    pass
+__all__ = [
+    "GeminiEmbeddingModel",
+    "GeminiLLMClient",
+    "create_gemini_client",
+    "default_http_options",
+    "load_env_api_key",
+]
 
 
 def load_env_api_key(env_path: Union[str, Path] = ".env") -> str:
@@ -96,12 +99,15 @@ class GeminiEmbeddingModel:
             task_type=task_type,
             output_dimensionality=self._dimensions,
         )
-        response = self._client.models.embed_content(
-            model=self._model_name,
-            contents=text,
-            config=config,
-        )
-        return list(response.embeddings[0].values)
+        try:
+            response = self._client.models.embed_content(
+                model=self._model_name,
+                contents=text,
+                config=config,
+            )
+            return list(response.embeddings[0].values)
+        except errors.APIError as e:
+            raise AIProviderError(f"Gemini embedding API error: {e}") from e
 
     def embed_document(self, text: str) -> List[float]:
         """Embeds a single document for ingestion with RETRIEVAL_DOCUMENT task type."""
@@ -119,13 +125,16 @@ class GeminiEmbeddingModel:
                 task_type="RETRIEVAL_DOCUMENT",
                 output_dimensionality=self._dimensions,
             )
-            response = self._client.models.embed_content(
-                model=self._model_name,
-                contents=chunk,
-                config=config,
-            )
-            for emb in response.embeddings:
-                results.append(list(emb.values))
+            try:
+                response = self._client.models.embed_content(
+                    model=self._model_name,
+                    contents=chunk,
+                    config=config,
+                )
+                for emb in response.embeddings:
+                    results.append(list(emb.values))
+            except errors.APIError as e:
+                raise AIProviderError(f"Gemini embedding API error: {e}") from e
 
         return results
 
@@ -161,9 +170,12 @@ class GeminiLLMClient:
             system_instruction=system_instruction,
             temperature=0.3,
         )
-        response = self._client.models.generate_content(
-            model=self._model_name,
-            contents=prompt,
-            config=config,
-        )
-        return response.text or ""
+        try:
+            response = self._client.models.generate_content(
+                model=self._model_name,
+                contents=prompt,
+                config=config,
+            )
+            return response.text or ""
+        except errors.APIError as e:
+            raise AIProviderError(f"Gemini synthesis generation failed: {e}") from e

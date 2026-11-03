@@ -7,15 +7,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Union
 
-from arc_life_diary.exceptions import DiaryError
+from arc_life_diary.exceptions import DiaryError, EmptyArchiveError, ValidationError
 from arc_life_diary.interfaces import BaseEmbeddingModel, BaseLLMClient
 from arc_life_diary.parser import JournalEntry, scan_entries_directory
 from arc_life_diary.store import DiaryStore, SearchResult
 
-
-class EmptyArchiveError(DiaryError):
-    """Raised when the entries archive directory contains no markdown files."""
-    pass
+__all__ = ["DiaryService", "EmptyArchiveError", "SyncResult"]
 
 
 @dataclass(frozen=True)
@@ -67,7 +64,7 @@ class DiaryService:
         """Incrementally synchronizes entry files with the vector database."""
         path = Path(entries_dir)
         if not path.exists():
-            raise FileNotFoundError(f"Entries directory does not exist: {path.resolve()}")
+            raise ValidationError(f"Entries directory does not exist: {path.resolve()}")
 
         scanned_entries = scan_entries_directory(path)
         if not scanned_entries:
@@ -117,7 +114,7 @@ class DiaryService:
     def search(self, query_text: str, limit: int = 5) -> str:
         """Performs semantic search and returns formatted relevant entries without LLM synthesis."""
         if not query_text.strip():
-            raise ValueError("Query string cannot be empty.")
+            raise ValidationError("Query string cannot be empty.")
 
         query_vector = self.embedder.embed_query(query_text)
         retrieved_entries = self.store.search_semantic(query_vector, limit=limit)
@@ -130,7 +127,7 @@ class DiaryService:
     def query(self, query_text: str, limit: int = 5) -> str:
         """Searches entries and returns synthesized reflection with relevant entries."""
         if not query_text.strip():
-            raise ValueError("Query string cannot be empty.")
+            raise ValidationError("Query string cannot be empty.")
 
         query_vector = self.embedder.embed_query(query_text)
         retrieved_entries = self.store.search_semantic(query_vector, limit=limit)

@@ -45,8 +45,8 @@ def parse_entry_content(raw_text: str, entry_date: str) -> JournalEntry:
                 parsed = yaml.safe_load(fm_str)
                 if isinstance(parsed, dict):
                     frontmatter = parsed
-            except Exception:
-                # If frontmatter cannot be parsed, treat as regular text
+            except yaml.YAMLError:
+                # If frontmatter cannot be parsed due to invalid YAML, treat as regular text
                 body = raw_text
 
     title = str(frontmatter.get("title", "")).strip()

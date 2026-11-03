@@ -14,33 +14,28 @@ from typing import Callable, List, Optional
 
 import py7zr
 
-from arc_life_diary.exceptions import DiaryError
+from arc_life_diary.exceptions import (
+    BackupError,
+    DecryptionError,
+    DiaryError,
+    EmptyArchiveError,
+    PasswordMismatchError,
+    RestoreCancelledError,
+)
 from arc_life_diary.interfaces import BaseBackupStorage, RemoteBackupMetadata
 
-
-class BackupError(DiaryError):
-    """Base exception for backup and restore operations."""
-    pass
-
-
-class DecryptionError(BackupError):
-    """Raised when archive decryption fails due to invalid password or corruption."""
-    pass
-
-
-class PasswordMismatchError(BackupError):
-    """Raised when password confirmation does not match."""
-    pass
-
-
-class EmptyArchiveError(BackupError):
-    """Raised when entries directory is empty during backup."""
-    pass
-
-
-class RestoreCancelledError(BackupError):
-    """Raised when restore is cancelled by the user upon overwrite prompt."""
-    pass
+__all__ = [
+    "BackupError",
+    "DecryptionError",
+    "EmptyArchiveError",
+    "PasswordMismatchError",
+    "RestoreCancelledError",
+    "BackupService",
+    "create_encrypted_archive",
+    "extract_encrypted_archive",
+    "generate_backup_filename",
+    "is_valid_backup_filename",
+]
 
 
 BACKUP_FILENAME_REGEX = re.compile(r"^arc-life-diary_backup_\d{4}-\d{2}-\d{2}_\d{6}\.7z$")
@@ -128,8 +123,18 @@ def extract_encrypted_archive(
     try:
         with py7zr.SevenZipFile(archive_path, mode="r", password=password) as archive:
             archive.extractall(path=destination_dir)
-    except Exception as e:
+    except (
+        py7zr.exceptions.Bad7zFile,
+        py7zr.exceptions.PasswordRequired,
+        py7zr.exceptions.ArchiveError,
+        py7zr.exceptions.DecompressionError,
+        py7zr.exceptions.CrcError,
+    ) as e:
         raise DecryptionError("Decryption failed during extraction. Incorrect password or corrupted archive.") from e
+    except (OSError, IOError) as e:
+        raise BackupError(f"Failed to write extracted files to disk: {e}") from e
+    except Exception as e:
+        raise DecryptionError(f"Decryption failed during extraction: {e}") from e
 
     return [destination_dir / name for name in filenames]
 

@@ -5,10 +5,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 import pytest
 
-from arc_life_diary.providers.gdrive import (
-    GoogleDriveAuthError,
-    GoogleDriveStorage,
-)
+from arc_life_diary.exceptions import GoogleDriveAuthError
+from arc_life_diary.providers.gdrive import GoogleDriveStorage
 
 
 def test_missing_credentials_file_raises_auth_error(tmp_path):

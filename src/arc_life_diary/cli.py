@@ -35,15 +35,25 @@ def load_config(env_path: Union[str, Path] = ".env") -> dict:
 
 def build_parser() -> argparse.ArgumentParser:
     """Constructs the CLI argument parser."""
+    debug_parent = argparse.ArgumentParser(add_help=False)
+    debug_parent.add_argument(
+        "--debug",
+        action="store_true",
+        help="Print full stack trace on errors",
+    )
+
     parser = argparse.ArgumentParser(
         prog="diary",
         description="Personal archive introspection CLI with semantic search and temporal synthesis.",
+        parents=[debug_parent],
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Subcommand to run")
 
     # Subcommand: sync
-    sync_parser = subparsers.add_parser("sync", help="Synchronize journal entries with vector index")
+    sync_parser = subparsers.add_parser(
+        "sync", parents=[debug_parent], help="Synchronize journal entries with vector index"
+    )
     sync_parser.add_argument(
         "--dir",
         type=str,
@@ -52,7 +62,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # Subcommand: query
-    query_parser = subparsers.add_parser("query", help="Execute semantic query on journal entries")
+    query_parser = subparsers.add_parser(
+        "query", parents=[debug_parent], help="Execute semantic query on journal entries"
+    )
     query_parser.add_argument("query_text", type=str, help="Search query string")
     query_parser.add_argument(
         "--limit",
@@ -68,7 +80,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # Subcommand: search
-    search_parser = subparsers.add_parser("search", help="Execute semantic search on journal entries without synthesis")
+    search_parser = subparsers.add_parser(
+        "search",
+        parents=[debug_parent],
+        help="Execute semantic search on journal entries without synthesis",
+    )
     search_parser.add_argument("query_text", type=str, help="Search query string")
     search_parser.add_argument(
         "--limit",
@@ -84,7 +100,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # Subcommand: backup
-    backup_parser = subparsers.add_parser("backup", help="Create an encrypted backup of journal entries on Google Drive")
+    backup_parser = subparsers.add_parser(
+        "backup", parents=[debug_parent], help="Create an encrypted backup of journal entries on Google Drive"
+    )
     backup_parser.add_argument(
         "--dir",
         type=str,
@@ -93,7 +111,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # Subcommand: restore
-    restore_parser = subparsers.add_parser("restore", help="Restore journal entries from an encrypted Google Drive backup")
+    restore_parser = subparsers.add_parser(
+        "restore",
+        parents=[debug_parent],
+        help="Restore journal entries from an encrypted Google Drive backup",
+    )
     restore_parser.add_argument(
         "--dir",
         type=str,
@@ -264,9 +286,17 @@ def main(argv=None) -> int:
 
     except DiaryError as e:
         print(f"Error: {e}", file=sys.stderr)
+        if getattr(args, "debug", False):
+            import traceback
+
+            traceback.print_exc()
         return 1
     except Exception as e:
         print(f"Unexpected error: {e}", file=sys.stderr)
+        if getattr(args, "debug", False):
+            import traceback
+
+            traceback.print_exc()
         return 1
 
     return 0

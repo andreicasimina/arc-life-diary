@@ -5,8 +5,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 import pytest
 
+from arc_life_diary.exceptions import ProviderAuthError
 from arc_life_diary.providers.gemini import (
-    ProviderAuthError,
     create_gemini_client,
     load_env_api_key,
 )

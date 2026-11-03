@@ -19,15 +19,12 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 
 from arc_life_diary.backup import is_valid_backup_filename
-from arc_life_diary.exceptions import DiaryError
+from arc_life_diary.exceptions import DiaryError, GoogleDriveAuthError, RemoteStorageError
 from arc_life_diary.interfaces import BaseBackupStorage, RemoteBackupMetadata
 
+__all__ = ["GoogleDriveStorage"]
+
 SCOPES = ["https://www.googleapis.com/auth/drive.file"]
-
-
-class GoogleDriveAuthError(DiaryError):
-    """Raised when authentication fails or required credentials are missing."""
-    pass
 
 
 class GoogleDriveStorage(BaseBackupStorage):
@@ -103,15 +100,26 @@ class GoogleDriveStorage(BaseBackupStorage):
             resumable=True,
         )
 
-        created = (
-            self.service.files()
-            .create(
-                body=file_metadata,
-                media_body=media,
-                fields="id, name, createdTime, size",
+        try:
+            created = (
+                self.service.files()
+                .create(
+                    body=file_metadata,
+                    media_body=media,
+                    fields="id, name, createdTime, size",
+                )
+                .execute()
             )
-            .execute()
-        )
+        except HttpError as e:
+            if self.folder_id and getattr(e.resp, "status", None) == 404:
+                raise RemoteStorageError(
+                    f"Target Google Drive folder '{self.folder_id}' not found or inaccessible."
+                ) from e
+            raise RemoteStorageError(f"Google Drive upload failed: {e}") from e
+        except Exception as e:
+            if isinstance(e, DiaryError):
+                raise
+            raise RemoteStorageError(f"Google Drive upload failed: {e}") from e
 
         created_time = created.get("createdTime")
         created_at = datetime.fromisoformat(created_time) if created_time else datetime.now(timezone.utc)
@@ -134,16 +142,23 @@ class GoogleDriveStorage(BaseBackupStorage):
         if self.folder_id:
             query_parts.append(f"'{self.folder_id}' in parents")
 
-        results = (
-            self.service.files()
-            .list(
-                q=" and ".join(query_parts),
-                fields="files(id, name, createdTime, size)",
-                orderBy="createdTime desc",
-                pageSize=100,
+        try:
+            results = (
+                self.service.files()
+                .list(
+                    q=" and ".join(query_parts),
+                    fields="files(id, name, createdTime, size)",
+                    orderBy="createdTime desc",
+                    pageSize=100,
+                )
+                .execute()
             )
-            .execute()
-        )
+        except HttpError as e:
+            raise RemoteStorageError(f"Failed to query Google Drive backups: {e}") from e
+        except Exception as e:
+            if isinstance(e, DiaryError):
+                raise
+            raise RemoteStorageError(f"Failed to query Google Drive backups: {e}") from e
 
         backups: List[RemoteBackupMetadata] = []
         for f in results.get("files", []):
@@ -167,11 +182,20 @@ class GoogleDriveStorage(BaseBackupStorage):
         """Downloads a remote backup archive by ID to a local destination path."""
         destination_path.parent.mkdir(parents=True, exist_ok=True)
 
-        request = self.service.files().get_media(fileId=file_id)
-        with io.FileIO(destination_path, "wb") as fh:
-            downloader = MediaIoBaseDownload(fh, request)
-            done = False
-            while not done:
-                _, done = downloader.next_chunk()
+        try:
+            request = self.service.files().get_media(fileId=file_id)
+            with io.FileIO(destination_path, "wb") as fh:
+                downloader = MediaIoBaseDownload(fh, request)
+                done = False
+                while not done:
+                    _, done = downloader.next_chunk()
+        except HttpError as e:
+            if getattr(e.resp, "status", None) == 404:
+                raise RemoteStorageError(f"Backup archive '{file_id}' not found on Google Drive.") from e
+            raise RemoteStorageError(f"Google Drive download failed: {e}") from e
+        except Exception as e:
+            if isinstance(e, DiaryError):
+                raise
+            raise RemoteStorageError(f"Google Drive download failed: {e}") from e
 
         return destination_path

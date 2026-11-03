@@ -6,13 +6,10 @@ import sqlite3
 from typing import Dict, List, Optional, Tuple, Union
 import sqlite_vec
 
-from arc_life_diary.exceptions import DiaryError
+from arc_life_diary.exceptions import DiaryError, DimensionMismatchError
 from arc_life_diary.parser import JournalEntry
 
-
-class DimensionMismatchError(DiaryError):
-    """Raised when existing database dimensions do not match current embedder dimensions."""
-    pass
+__all__ = ["DiaryStore", "DimensionMismatchError", "SearchResult"]
 
 
 @dataclass(frozen=True)
@@ -117,7 +114,7 @@ class DiaryStore:
         with self.conn:
             for entry, embedding in items:
                 if len(embedding) != self.dimensions:
-                    raise ValueError(
+                    raise DimensionMismatchError(
                         f"Vector dimension {len(embedding)} does not match store dimension {self.dimensions}"
                     )
                 cur = self.conn.execute(
@@ -160,7 +157,7 @@ class DiaryStore:
     def search_semantic(self, query_vector: List[float], limit: int = 5) -> List[SearchResult]:
         """Performs semantic cosine search and returns up to limit matching entries."""
         if len(query_vector) != self.dimensions:
-            raise ValueError(
+            raise DimensionMismatchError(
                 f"Query vector dimension {len(query_vector)} does not match store dimension {self.dimensions}"
             )
 
