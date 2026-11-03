@@ -12,32 +12,32 @@ from arc_life_diary.interfaces import RemoteBackupMetadata
 
 # --- Sync & Query Command Wiring ---
 
-def test_cli_shared_client_injected(monkeypatch, tmp_path: Path):
-    monkeypatch.setenv("GEMINI_API_KEY", "mock-key")
-    with patch("arc_life_diary.cli.create_gemini_client") as mock_create_client:
-        mock_client = MagicMock()
-        mock_create_client.return_value = mock_client
-        with patch("arc_life_diary.cli.GeminiEmbeddingModel") as mock_embedder_cls:
-            with patch("arc_life_diary.cli.GeminiLLMClient") as mock_llm_cls:
-                with patch("arc_life_diary.cli.DiaryStore"):
-                    with patch("arc_life_diary.cli.DiaryService") as mock_service_cls:
-                        mock_service = MagicMock()
-                        mock_stats = MagicMock()
-                        mock_stats.scanned = 0
-                        mock_stats.added = 0
-                        mock_stats.updated = 0
-                        mock_stats.deleted = 0
-                        mock_stats.unchanged = 0
-                        mock_service.sync.return_value = mock_stats
-                        mock_service_cls.return_value = mock_service
+def test_cli_ai_provider_resolution(tmp_path: Path):
+    mock_embedder = MagicMock()
+    mock_embedder.dimensions = 768
+    mock_llm = MagicMock()
 
-                        exit_code = main(["sync", "--dir", str(tmp_path)])
-                        assert exit_code == 0
+    with patch("arc_life_diary.cli.get_ai_providers", return_value=(mock_embedder, mock_llm)) as mock_factory:
+        with patch("arc_life_diary.cli.DiaryStore"):
+            with patch("arc_life_diary.cli.DiaryService") as mock_service_cls:
+                mock_service = MagicMock()
+                mock_stats = MagicMock()
+                mock_stats.scanned = 0
+                mock_stats.added = 0
+                mock_stats.updated = 0
+                mock_stats.deleted = 0
+                mock_stats.unchanged = 0
+                mock_service.sync.return_value = mock_stats
+                mock_service_cls.return_value = mock_service
 
-                        # Ensure shared client was created once and passed to both models
-                        mock_create_client.assert_called_once_with(env_path=".env")
-                        mock_embedder_cls.assert_called_once_with(client=mock_client)
-                        mock_llm_cls.assert_called_once_with(client=mock_client)
+                exit_code = main(["sync", "--dir", str(tmp_path)])
+                assert exit_code == 0
+
+                mock_factory.assert_called_once_with()
+                mock_service_cls.assert_called_once()
+                _, kwargs = mock_service_cls.call_args
+                assert kwargs["embedder"] is mock_embedder
+                assert kwargs["llm"] is mock_llm
 
 
 def test_cli_missing_env_error(monkeypatch, tmp_path: Path):
@@ -78,7 +78,7 @@ def test_cli_backup_success(tmp_path, capsys):
     )
 
     with patch("getpass.getpass", side_effect=["secure_pass", "secure_pass"]):
-        with patch("arc_life_diary.cli.GoogleDriveStorage"):
+        with patch("arc_life_diary.cli.get_backup_storage"):
             with patch("arc_life_diary.cli.BackupService") as mock_service_cls:
                 mock_service = MagicMock()
                 mock_service.create_backup.return_value = mock_metadata
@@ -96,7 +96,7 @@ def test_cli_backup_success(tmp_path, capsys):
 # --- Restore Subcommand Wiring ---
 
 def test_cli_restore_no_backups(capsys):
-    with patch("arc_life_diary.cli.GoogleDriveStorage"):
+    with patch("arc_life_diary.cli.get_backup_storage"):
         with patch("arc_life_diary.cli.BackupService") as mock_service_cls:
             mock_service = MagicMock()
             mock_service.list_backups.return_value = []
@@ -122,7 +122,7 @@ def test_cli_restore_latest_success(tmp_path, capsys):
     ]
 
     with patch("getpass.getpass", return_value="my_pass"):
-        with patch("arc_life_diary.cli.GoogleDriveStorage"):
+        with patch("arc_life_diary.cli.get_backup_storage"):
             with patch("arc_life_diary.cli.BackupService") as mock_service_cls:
                 mock_service = MagicMock()
                 mock_service.list_backups.return_value = mock_backups
@@ -151,7 +151,7 @@ def test_cli_restore_decryption_error(tmp_path, capsys):
     ]
 
     with patch("getpass.getpass", return_value="wrong_pass"):
-        with patch("arc_life_diary.cli.GoogleDriveStorage"):
+        with patch("arc_life_diary.cli.get_backup_storage"):
             with patch("arc_life_diary.cli.BackupService") as mock_service_cls:
                 mock_service = MagicMock()
                 mock_service.list_backups.return_value = mock_backups
@@ -161,4 +161,4 @@ def test_cli_restore_decryption_error(tmp_path, capsys):
                 exit_code = main(["restore", "--latest"])
                 assert exit_code == 1
                 captured = capsys.readouterr()
-                assert "Decryption Error" in captured.err
+                assert "Error: Incorrect password" in captured.err

@@ -17,22 +17,11 @@ from typing import Optional, Union
 
 import dotenv
 
-from arc_life_diary.backup import (
-    BackupError,
-    BackupService,
-    DecryptionError,
-    PasswordMismatchError,
-    RestoreCancelledError,
-)
-from arc_life_diary.providers.gdrive import GoogleDriveAuthError, GoogleDriveStorage
-from arc_life_diary.providers.gemini import (
-    GeminiEmbeddingModel,
-    GeminiLLMClient,
-    ProviderAuthError,
-    create_gemini_client,
-)
-from arc_life_diary.service import DiaryService, EmptyArchiveError
-from arc_life_diary.store import DiaryStore, DimensionMismatchError
+from arc_life_diary.backup import BackupService
+from arc_life_diary.exceptions import DiaryError
+from arc_life_diary.providers.factory import get_ai_providers, get_backup_storage
+from arc_life_diary.service import DiaryService
+from arc_life_diary.store import DiaryStore
 
 
 def load_config(env_path: Union[str, Path] = ".env") -> dict:
@@ -162,7 +151,7 @@ def main(argv=None) -> int:
                 print("Error: Passwords do not match. Backup aborted.", file=sys.stderr)
                 return 1
 
-            storage = GoogleDriveStorage(env_path=".env")
+            storage = get_backup_storage()
             backup_service = BackupService(storage=storage)
 
             print("Packaging and encrypting entries...")
@@ -180,7 +169,7 @@ def main(argv=None) -> int:
             return 0
 
         elif args.command == "restore":
-            storage = GoogleDriveStorage(env_path=".env")
+            storage = get_backup_storage()
             backup_service = BackupService(storage=storage)
 
             print("Querying Google Drive for backups...")
@@ -240,11 +229,7 @@ def main(argv=None) -> int:
             print("Run 'diary sync' to rebuild the local vector index.")
             return 0
 
-        # Provider configuration: to switch providers (e.g., to local Ollama, OpenAI, or Mock),
-        # swap out GeminiEmbeddingModel and GeminiLLMClient below with the new provider classes.
-        client = create_gemini_client(env_path=".env")
-        embedder = GeminiEmbeddingModel(client=client)
-        llm = GeminiLLMClient(client=client)
+        embedder, llm = get_ai_providers()
 
         with DiaryStore(db_path=db_path, dimensions=embedder.dimensions) as store:
             service = DiaryService(store=store, embedder=embedder, llm=llm)
@@ -277,32 +262,11 @@ def main(argv=None) -> int:
                 print(output)
                 return 0
 
-    except ProviderAuthError as e:
-        print(f"Authentication Error: {e}", file=sys.stderr)
-        return 1
-    except GoogleDriveAuthError as e:
-        print(f"Google Drive Authentication Error: {e}", file=sys.stderr)
-        return 1
-    except DecryptionError as e:
-        print(f"Decryption Error: {e}", file=sys.stderr)
-        return 1
-    except PasswordMismatchError as e:
-        print(f"Password Mismatch: {e}", file=sys.stderr)
-        return 1
-    except RestoreCancelledError as e:
-        print(f"Restore Cancelled: {e}", file=sys.stderr)
-        return 1
-    except EmptyArchiveError as e:
-        print(f"Empty Archive Warning: {e}", file=sys.stderr)
-        return 1
-    except BackupError as e:
-        print(f"Backup Error: {e}", file=sys.stderr)
-        return 1
-    except DimensionMismatchError as e:
-        print(f"Dimension Mismatch: {e}", file=sys.stderr)
+    except DiaryError as e:
+        print(f"Error: {e}", file=sys.stderr)
         return 1
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+        print(f"Unexpected error: {e}", file=sys.stderr)
         return 1
 
     return 0

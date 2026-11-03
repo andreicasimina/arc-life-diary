@@ -8,7 +8,7 @@ from typing import List
 class MockEmbeddingModel:
     """Deterministic mock embedding model without external network dependencies."""
 
-    def __init__(self, dimensions: int = 4):
+    def __init__(self, dimensions: int = 768):
         self._dimensions = dimensions
 
     @property

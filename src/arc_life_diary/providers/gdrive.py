@@ -19,12 +19,13 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 
 from arc_life_diary.backup import is_valid_backup_filename
+from arc_life_diary.exceptions import DiaryError
 from arc_life_diary.interfaces import BaseBackupStorage, RemoteBackupMetadata
 
 SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 
 
-class GoogleDriveAuthError(Exception):
+class GoogleDriveAuthError(DiaryError):
     """Raised when authentication fails or required credentials are missing."""
     pass
 

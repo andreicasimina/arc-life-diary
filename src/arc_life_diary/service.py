@@ -7,12 +7,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Union
 
+from arc_life_diary.exceptions import DiaryError
 from arc_life_diary.interfaces import BaseEmbeddingModel, BaseLLMClient
 from arc_life_diary.parser import JournalEntry, scan_entries_directory
 from arc_life_diary.store import DiaryStore, SearchResult
 
 
-class EmptyArchiveError(Exception):
+class EmptyArchiveError(DiaryError):
     """Raised when the entries archive directory contains no markdown files."""
     pass
 

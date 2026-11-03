@@ -10,8 +10,10 @@ import dotenv
 from google import genai
 from google.genai import types
 
+from arc_life_diary.exceptions import DiaryError
 
-class ProviderAuthError(Exception):
+
+class ProviderAuthError(DiaryError):
     """Raised when provider credentials cannot be loaded from environment or .env."""
     pass
 

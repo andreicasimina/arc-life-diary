@@ -10,3 +10,5 @@ def isolate_test_environment(monkeypatch):
     monkeypatch.delenv("GDRIVE_FOLDER_ID", raising=False)
     monkeypatch.delenv("DIARY_ENTRIES_DIR", raising=False)
     monkeypatch.delenv("DIARY_DB_PATH", raising=False)
+    monkeypatch.delenv("DIARY_AI_PROVIDER", raising=False)
+    monkeypatch.delenv("DIARY_STORAGE_PROVIDER", raising=False)

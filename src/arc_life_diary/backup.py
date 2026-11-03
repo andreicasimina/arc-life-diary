@@ -14,10 +14,11 @@ from typing import Callable, List, Optional
 
 import py7zr
 
+from arc_life_diary.exceptions import DiaryError
 from arc_life_diary.interfaces import BaseBackupStorage, RemoteBackupMetadata
 
 
-class BackupError(Exception):
+class BackupError(DiaryError):
     """Base exception for backup and restore operations."""
     pass
 

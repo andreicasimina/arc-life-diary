@@ -6,10 +6,11 @@ import sqlite3
 from typing import Dict, List, Optional, Tuple, Union
 import sqlite_vec
 
+from arc_life_diary.exceptions import DiaryError
 from arc_life_diary.parser import JournalEntry
 
 
-class DimensionMismatchError(Exception):
+class DimensionMismatchError(DiaryError):
     """Raised when existing database dimensions do not match current embedder dimensions."""
     pass
 
