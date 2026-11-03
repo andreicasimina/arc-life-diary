@@ -1,8 +1,9 @@
 """Gemini provider implementing BaseEmbeddingModel and BaseLLMClient.
 
-API keys are read strictly from the repository's .env file via python-dotenv.
+API keys are read from environment variables or .env file via python-dotenv.
 """
 
+import os
 from pathlib import Path
 from typing import List, Optional, Union
 import dotenv
@@ -11,27 +12,20 @@ from google.genai import types
 
 
 class ProviderAuthError(Exception):
-    """Raised when provider credentials cannot be loaded from .env."""
+    """Raised when provider credentials cannot be loaded from environment or .env."""
     pass
 
 
 def load_env_api_key(env_path: Union[str, Path] = ".env") -> str:
-    """Loads GEMINI_API_KEY strictly from the given .env file."""
-    path = Path(env_path)
-    if not path.is_file():
-        raise ProviderAuthError(
-            f"Could not find .env file at {path.resolve()}. "
-            "Please create a .env file containing GEMINI_API_KEY=your_key."
-        )
+    """Populates os.environ from .env (if present) and resolves GEMINI_API_KEY from environment."""
+    dotenv.load_dotenv(dotenv_path=env_path, override=False)
 
-    env_values = dotenv.dotenv_values(path)
-    api_key = env_values.get("GEMINI_API_KEY")
+    api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key or not str(api_key).strip():
         raise ProviderAuthError(
-            f"GEMINI_API_KEY is not defined or is empty in {path.resolve()}. "
-            "Please add GEMINI_API_KEY=your_key to your .env file."
+            "GEMINI_API_KEY is not set in environment or .env file. "
+            "Please export GEMINI_API_KEY or define it in your .env file."
         )
-
     return str(api_key).strip()
 
 
@@ -49,6 +43,27 @@ def default_http_options() -> types.HttpOptions:
     )
 
 
+def create_gemini_client(
+    api_key: Optional[str] = None,
+    env_path: Union[str, Path] = ".env",
+    http_options: Optional[types.HttpOptions] = None,
+) -> genai.Client:
+    """Constructs a shared genai.Client.
+
+    Populates os.environ with .env upfront (override=False) and relies on
+    standard environment resolution or explicit api_key.
+    """
+    dotenv.load_dotenv(dotenv_path=env_path, override=False)
+    resolved_key = api_key or os.environ.get("GEMINI_API_KEY")
+    if not resolved_key or not str(resolved_key).strip():
+        raise ProviderAuthError(
+            "GEMINI_API_KEY is not set in environment or .env file. "
+            "Please export GEMINI_API_KEY or define it in your .env file."
+        )
+    opts = http_options if http_options is not None else default_http_options()
+    return genai.Client(api_key=resolved_key.strip(), http_options=opts)
+
+
 class GeminiEmbeddingModel:
     """Concrete embedding model using Gemini gemini-embedding-001 (768 dimensions)."""
 
@@ -64,9 +79,11 @@ class GeminiEmbeddingModel:
         if client is not None:
             self._client = client
         else:
-            resolved_key = api_key or load_env_api_key(env_path)
-            opts = http_options if http_options is not None else default_http_options()
-            self._client = genai.Client(api_key=resolved_key, http_options=opts)
+            self._client = create_gemini_client(
+                api_key=api_key,
+                env_path=env_path,
+                http_options=http_options,
+            )
 
     @property
     def dimensions(self) -> int:
@@ -130,9 +147,11 @@ class GeminiLLMClient:
         if client is not None:
             self._client = client
         else:
-            resolved_key = api_key or load_env_api_key(env_path)
-            opts = http_options if http_options is not None else default_http_options()
-            self._client = genai.Client(api_key=resolved_key, http_options=opts)
+            self._client = create_gemini_client(
+                api_key=api_key,
+                env_path=env_path,
+                http_options=http_options,
+            )
 
     def generate_synthesis(self, prompt: str, system_instruction: str) -> str:
         """Invokes gemini-3.5-flash-lite with system instruction and context prompt."""

@@ -10,6 +10,7 @@ Supports:
 
 import argparse
 import getpass
+import os
 from pathlib import Path
 import sys
 from typing import Optional
@@ -24,18 +25,22 @@ from arc_life_diary.backup import (
     RestoreCancelledError,
 )
 from arc_life_diary.providers.gdrive import GoogleDriveAuthError, GoogleDriveStorage
-from arc_life_diary.providers.gemini import GeminiEmbeddingModel, GeminiLLMClient, ProviderAuthError
+from arc_life_diary.providers.gemini import (
+    GeminiEmbeddingModel,
+    GeminiLLMClient,
+    ProviderAuthError,
+    create_gemini_client,
+)
 from arc_life_diary.service import DiaryService, EmptyArchiveError
 from arc_life_diary.store import DiaryStore, DimensionMismatchError
 
 
 def load_config() -> dict:
-    """Loads configuration strictly from repository .env file."""
-    env_path = Path(".env")
-    env_vars = dotenv.dotenv_values(env_path) if env_path.is_file() else {}
+    """Loads configuration from environment variables (populated from .env)."""
+    dotenv.load_dotenv(override=False)
     return {
-        "entries_dir": env_vars.get("DIARY_ENTRIES_DIR", "./entries"),
-        "db_path": env_vars.get("DIARY_DB_PATH", "./diary.db"),
+        "entries_dir": os.environ.get("DIARY_ENTRIES_DIR", "./entries"),
+        "db_path": os.environ.get("DIARY_DB_PATH", "./diary.db"),
     }
 
 
@@ -237,8 +242,9 @@ def main(argv=None) -> int:
 
         # Provider configuration: to switch providers (e.g., to local Ollama, OpenAI, or Mock),
         # swap out GeminiEmbeddingModel and GeminiLLMClient below with the new provider classes.
-        embedder = GeminiEmbeddingModel(env_path=".env")
-        llm = GeminiLLMClient(env_path=".env")
+        client = create_gemini_client(env_path=".env")
+        embedder = GeminiEmbeddingModel(client=client)
+        llm = GeminiLLMClient(client=client)
 
         store = DiaryStore(db_path=db_path, dimensions=embedder.dimensions)
         service = DiaryService(store=store, embedder=embedder, llm=llm)
