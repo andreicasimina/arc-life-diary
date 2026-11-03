@@ -6,12 +6,12 @@ from google.genai import types
 from arc_life_diary.providers.gemini import (
     GeminiEmbeddingModel,
     GeminiLLMClient,
-    default_http_options,
+    _default_http_options,
 )
 
 
 def test_default_http_options():
-    opts = default_http_options()
+    opts = _default_http_options()
     assert isinstance(opts, types.HttpOptions)
     assert opts.retry_options is not None
     assert opts.retry_options.attempts == 5

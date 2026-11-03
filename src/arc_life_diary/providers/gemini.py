@@ -16,25 +16,26 @@ __all__ = [
     "GeminiEmbeddingModel",
     "GeminiLLMClient",
     "create_gemini_client",
-    "default_http_options",
-    "load_env_api_key",
 ]
 
 
-def load_env_api_key(env_path: Union[str, Path] = ".env") -> str:
+def _resolve_api_key(
+    api_key: Optional[str] = None,
+    env_path: Union[str, Path] = ".env",
+) -> str:
     """Populates os.environ from .env (if present) and resolves GEMINI_API_KEY from environment."""
     dotenv.load_dotenv(dotenv_path=env_path, override=False)
 
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key or not str(api_key).strip():
+    resolved_key = api_key or os.environ.get("GEMINI_API_KEY")
+    if not resolved_key or not str(resolved_key).strip():
         raise ProviderAuthError(
             "GEMINI_API_KEY is not set in environment or .env file. "
             "Please export GEMINI_API_KEY or define it in your .env file."
         )
-    return str(api_key).strip()
+    return str(resolved_key).strip()
 
 
-def default_http_options() -> types.HttpOptions:
+def _default_http_options() -> types.HttpOptions:
     """Returns HttpOptions configured with automatic retries for rate limits and server errors."""
     return types.HttpOptions(
         retry_options=types.HttpRetryOptions(
@@ -58,15 +59,9 @@ def create_gemini_client(
     Populates os.environ with .env upfront (override=False) and relies on
     standard environment resolution or explicit api_key.
     """
-    dotenv.load_dotenv(dotenv_path=env_path, override=False)
-    resolved_key = api_key or os.environ.get("GEMINI_API_KEY")
-    if not resolved_key or not str(resolved_key).strip():
-        raise ProviderAuthError(
-            "GEMINI_API_KEY is not set in environment or .env file. "
-            "Please export GEMINI_API_KEY or define it in your .env file."
-        )
-    opts = http_options if http_options is not None else default_http_options()
-    return genai.Client(api_key=resolved_key.strip(), http_options=opts)
+    resolved_key = _resolve_api_key(api_key=api_key, env_path=env_path)
+    opts = http_options if http_options is not None else _default_http_options()
+    return genai.Client(api_key=resolved_key, http_options=opts)
 
 
 class GeminiEmbeddingModel:
