@@ -92,3 +92,80 @@ def test_delete_entry(tmp_path: Path):
     assert store.delete_entry("2023-01-01") is False
 
     store.close()
+
+
+def test_context_manager_resource_release(tmp_path: Path):
+    db_file = tmp_path / "test_diary.db"
+    with DiaryStore(db_path=db_file, dimensions=4) as store:
+        assert store.count_entries() == 0
+
+    # Ensure connection is closed after context exit
+    import sqlite3
+
+    with pytest.raises(sqlite3.ProgrammingError, match="Cannot operate on a closed database"):
+        store.conn.execute("SELECT 1;")
+
+
+def test_upsert_entries_batch(tmp_path: Path):
+    db_file = tmp_path / "test_diary.db"
+    with DiaryStore(db_path=db_file, dimensions=3) as store:
+        # Empty batch should be a no-op
+        store.upsert_entries([])
+        assert store.count_entries() == 0
+
+        e1 = JournalEntry(date="2024-01-01", title="Day 1", content="Content 1", content_hash="h1")
+        e2 = JournalEntry(date="2024-01-02", title="Day 2", content="Content 2", content_hash="h2")
+        e3 = JournalEntry(date="2024-01-03", title="Day 3", content="Content 3", content_hash="h3")
+
+        items = [
+            (e1, [1.0, 0.0, 0.0]),
+            (e2, [0.0, 1.0, 0.0]),
+            (e3, [0.0, 0.0, 1.0]),
+        ]
+        store.upsert_entries(items)
+
+        assert store.count_entries() == 3
+        hashes = store.get_stored_hashes()
+        assert hashes == {
+            "2024-01-01": "h1",
+            "2024-01-02": "h2",
+            "2024-01-03": "h3",
+        }
+
+        # Verify semantic search works over batched items
+        results = store.search_semantic([0.9, 0.1, 0.0], limit=1)
+        assert len(results) == 1
+        assert results[0].date == "2024-01-01"
+
+
+def test_upsert_entries_rollback_on_dimension_mismatch(tmp_path: Path):
+    db_file = tmp_path / "test_diary.db"
+    with DiaryStore(db_path=db_file, dimensions=3) as store:
+        initial_entry = JournalEntry(
+            date="2024-01-01", title="Initial", content="Baseline", content_hash="h_base"
+        )
+        store.upsert_entry(initial_entry, [1.0, 0.0, 0.0])
+        assert store.count_entries() == 1
+
+        e_valid = JournalEntry(
+            date="2024-01-02", title="Valid", content="Valid content", content_hash="h_val"
+        )
+        e_invalid = JournalEntry(
+            date="2024-01-03", title="Invalid", content="Bad content", content_hash="h_inv"
+        )
+
+        # e_valid has 3 dims, e_invalid has 4 dims (mismatch)
+        items = [
+            (e_valid, [0.0, 1.0, 0.0]),
+            (e_invalid, [0.0, 0.0, 1.0, 0.0]),
+        ]
+
+        with pytest.raises(ValueError, match="Vector dimension 4 does not match store dimension 3"):
+            store.upsert_entries(items)
+
+        # Confirm atomic rollback: e_valid must NOT be persisted
+        assert store.count_entries() == 1
+        hashes = store.get_stored_hashes()
+        assert hashes == {"2024-01-01": "h_base"}
+        assert "2024-01-02" not in hashes
+

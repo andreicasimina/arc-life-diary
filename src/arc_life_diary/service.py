@@ -93,8 +93,7 @@ class DiaryService:
             for i in range(0, len(entries_to_embed), batch_size):
                 chunk = entries_to_embed[i : i + batch_size]
                 embeddings = self.embedder.embed_documents([e.content for e in chunk])
-                for entry, embedding in zip(chunk, embeddings):
-                    self.store.upsert_entry(entry, embedding)
+                self.store.upsert_entries(list(zip(chunk, embeddings)))
 
         added = len(entries_to_add)
         updated = len(entries_to_update)

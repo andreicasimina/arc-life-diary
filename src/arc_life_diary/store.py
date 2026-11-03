@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 import sqlite3
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 import sqlite_vec
 
 from arc_life_diary.parser import JournalEntry
@@ -34,6 +34,12 @@ class DiaryStore:
         self.conn.row_factory = sqlite3.Row
         self._init_sqlite_vec()
         self._init_schema()
+
+    def __enter__(self) -> "DiaryStore":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
 
     def _init_sqlite_vec(self) -> None:
         """Loads sqlite-vec extension into the SQLite connection."""
@@ -102,36 +108,40 @@ class DiaryStore:
         cur = self.conn.execute("SELECT date, content_hash FROM entries;")
         return {row["date"]: row["content_hash"] for row in cur.fetchall()}
 
-    def upsert_entry(self, entry: JournalEntry, embedding: List[float]) -> None:
-        """Upserts an entry into SQLite and updates its embedding in vec_entries."""
-        if len(embedding) != self.dimensions:
-            raise ValueError(
-                f"Vector dimension {len(embedding)} does not match store dimension {self.dimensions}"
-            )
+    def upsert_entries(self, items: List[Tuple[JournalEntry, List[float]]]) -> None:
+        """Upserts a batch of entries and embeddings inside a single atomic transaction."""
+        if not items:
+            return
 
         with self.conn:
-            # Upsert into entries and get the rowid
-            cur = self.conn.execute(
-                """
-                INSERT INTO entries (date, title, content_hash, raw_content, updated_at)
-                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(date) DO UPDATE SET
-                    title = excluded.title,
-                    content_hash = excluded.content_hash,
-                    raw_content = excluded.raw_content,
-                    updated_at = CURRENT_TIMESTAMP
-                RETURNING rowid;
-                """,
-                (entry.date, entry.title, entry.content_hash, entry.content),
-            )
-            rowid = cur.fetchone()["rowid"]
+            for entry, embedding in items:
+                if len(embedding) != self.dimensions:
+                    raise ValueError(
+                        f"Vector dimension {len(embedding)} does not match store dimension {self.dimensions}"
+                    )
+                cur = self.conn.execute(
+                    """
+                    INSERT INTO entries (date, title, content_hash, raw_content, updated_at)
+                    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(date) DO UPDATE SET
+                        title = excluded.title,
+                        content_hash = excluded.content_hash,
+                        raw_content = excluded.raw_content,
+                        updated_at = CURRENT_TIMESTAMP
+                    RETURNING rowid;
+                    """,
+                    (entry.date, entry.title, entry.content_hash, entry.content),
+                )
+                rowid = cur.fetchone()["rowid"]
+                self.conn.execute("DELETE FROM vec_entries WHERE id = ?;", (rowid,))
+                self.conn.execute(
+                    "INSERT INTO vec_entries (id, embedding) VALUES (?, ?);",
+                    (rowid, sqlite_vec.serialize_float32(embedding)),
+                )
 
-            # Remove existing vector for this rowid if present, then insert new vector
-            self.conn.execute("DELETE FROM vec_entries WHERE id = ?;", (rowid,))
-            self.conn.execute(
-                "INSERT INTO vec_entries (id, embedding) VALUES (?, ?);",
-                (rowid, sqlite_vec.serialize_float32(embedding)),
-            )
+    def upsert_entry(self, entry: JournalEntry, embedding: List[float]) -> None:
+        """Convenience method for a single entry upsert."""
+        self.upsert_entries([(entry, embedding)])
 
     def delete_entry(self, date: str) -> bool:
         """Deletes an entry and its vector by date. Returns True if deleted."""

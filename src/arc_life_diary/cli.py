@@ -246,36 +246,36 @@ def main(argv=None) -> int:
         embedder = GeminiEmbeddingModel(client=client)
         llm = GeminiLLMClient(client=client)
 
-        store = DiaryStore(db_path=db_path, dimensions=embedder.dimensions)
-        service = DiaryService(store=store, embedder=embedder, llm=llm)
+        with DiaryStore(db_path=db_path, dimensions=embedder.dimensions) as store:
+            service = DiaryService(store=store, embedder=embedder, llm=llm)
 
-        if args.command == "sync":
-            stats = service.sync(entries_dir)
-            print(
-                f"Sync complete: {stats.scanned} scanned, {stats.added} added, "
-                f"{stats.updated} updated, {stats.deleted} deleted, {stats.unchanged} unchanged."
-            )
-            return 0
+            if args.command == "sync":
+                stats = service.sync(entries_dir)
+                print(
+                    f"Sync complete: {stats.scanned} scanned, {stats.added} added, "
+                    f"{stats.updated} updated, {stats.deleted} deleted, {stats.unchanged} unchanged."
+                )
+                return 0
 
-        elif args.command == "query":
-            # Automatically sync if database has not been initialized with any entries
-            if store.count_entries() == 0 and entries_dir.exists():
-                print("First run detected. Synchronizing entries...")
-                service.sync(entries_dir)
+            elif args.command == "query":
+                # Automatically sync if database has not been initialized with any entries
+                if store.count_entries() == 0 and entries_dir.exists():
+                    print("First run detected. Synchronizing entries...")
+                    service.sync(entries_dir)
 
-            output = service.query(args.query_text, limit=args.limit)
-            print(output)
-            return 0
+                output = service.query(args.query_text, limit=args.limit)
+                print(output)
+                return 0
 
-        elif args.command == "search":
-            # Automatically sync if database has not been initialized with any entries
-            if store.count_entries() == 0 and entries_dir.exists():
-                print("First run detected. Synchronizing entries...")
-                service.sync(entries_dir)
+            elif args.command == "search":
+                # Automatically sync if database has not been initialized with any entries
+                if store.count_entries() == 0 and entries_dir.exists():
+                    print("First run detected. Synchronizing entries...")
+                    service.sync(entries_dir)
 
-            output = service.search(args.query_text, limit=args.limit)
-            print(output)
-            return 0
+                output = service.search(args.query_text, limit=args.limit)
+                print(output)
+                return 0
 
     except ProviderAuthError as e:
         print(f"Authentication Error: {e}", file=sys.stderr)
